@@ -1,6 +1,6 @@
 ---
 # Organization to pull metrics from
-organization: 'github-community-projects'
+organization: 'brainglobe'
 
 # Start date to pull metrics from
 since: '2020-01-01'
