@@ -1,8 +1,8 @@
 ## Welcome to the Open-Source Metrics Documentation
 
-#### How to Read World Health Organization Open-Source Dashboard
+#### How to Read BrainGlobe Open-Source Dashboard
 
-The Dashboard is currently a snapshot of data from the **World Health Organization** Repositories. All the metrics are based on the _Last Updated Date_ reflected on the top of the dashboard.
+The Dashboard is currently a snapshot of data from the **BrainGlobe** Repositories. All the metrics are based on the _Last Updated Date_ reflected on the top of the dashboard.
 
 ### Metrics and Definitions
 
