@@ -51,6 +51,10 @@ type Filter = {
   licenseName?: Record<string, boolean>;
   topics?: Record<string, boolean>;
   starsCount?: Array<number | undefined>;
+  dailyDownloadCount?: Array<number | undefined>;
+  weeklyDownloadCount?: Array<number | undefined>;
+  monthlyDownloadCount?: Array<number | undefined>;
+  totalDownloadCount?: Array<number | undefined>;
   collaboratorsCount?: Array<number | undefined>;
   watchersCount?: Array<number | undefined>;
   openIssuesCount?: Array<number | undefined>;
@@ -391,6 +395,10 @@ const getComparator = (sortColumn: keyof RepositoryResult): Comparator => {
     case 'discussionsCount':
     case 'forksCount':
     case 'starsCount':
+    case 'dailyDownloadCount':
+    case 'weeklyDownloadCount':
+    case 'monthlyDownloadCount':
+    case 'totalDownloadCount':
     case 'totalIssuesCount':
     case 'mergedPullRequestsCount':
     case 'openIssuesCount':
@@ -531,6 +539,30 @@ const RepositoriesTable = () => {
             filterName="starsCount"
           />
         ),
+    },
+    'Total Downloads': {
+      key: 'totalDownloadCount',
+      name: 'Total Downloads',
+      renderHeaderCell: (p) => (
+        <MinMaxRenderer
+          headerCellProps={p}
+          filters={globalFilters}
+          updateFilters={setGlobalFilters}
+          filterName="totalDownloadCount"
+        />
+      ),
+    },
+    'Weekly Downloads': {
+      key: 'weeklyDownloadCount',
+      name: 'Weekly Downloads',
+      renderHeaderCell: (p) => (
+        <MinMaxRenderer
+          headerCellProps={p}
+          filters={globalFilters}
+          updateFilters={setGlobalFilters}
+          filterName="weeklyDownloadCount"
+        />
+      ),
     },
     Collaborators: {
       key: 'collaboratorsCount',
@@ -825,6 +857,18 @@ const RepositoriesTable = () => {
                 repo.starsCount &&
               repo.starsCount <=
                 (globalFilters.starsCount[1] ?? Infinity)
+            : true) &&
+          (globalFilters.totalDownloadCount
+            ? (globalFilters.totalDownloadCount?.[0] ?? 0) <=
+            repo.starsCount &&
+            repo.starsCount <=
+            (globalFilters.totalDownloadCount[1] ?? Infinity)
+            : true) &&
+          (globalFilters.weeklyDownloadCount
+            ? (globalFilters.weeklyDownloadCount?.[0] ?? 0) <=
+            repo.starsCount &&
+            repo.starsCount <=
+            (globalFilters.weeklyDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.collaboratorsCount
             ? (globalFilters.collaboratorsCount?.[0] ?? 0) <=

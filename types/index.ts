@@ -20,6 +20,11 @@ export interface RepositoryResult {
   watchersCount: number;
   starsCount: number;
   collaboratorsCount: number;
+  downloadCount: number;
+  totalDownloadCount: number;
+  monthlyDownloadCount: number;
+  weeklyDownloadCount: number;
+  dailyDownloadCount: number;
 
   // Flags
   discussionsEnabled: boolean;
