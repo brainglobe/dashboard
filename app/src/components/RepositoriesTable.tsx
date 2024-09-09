@@ -540,18 +540,6 @@ const RepositoriesTable = () => {
           />
         ),
     },
-    'Total Downloads': {
-      key: 'totalDownloadCount',
-      name: 'Total Downloads',
-      renderHeaderCell: (p) => (
-        <MinMaxRenderer
-          headerCellProps={p}
-          filters={globalFilters}
-          updateFilters={setGlobalFilters}
-          filterName="totalDownloadCount"
-        />
-      ),
-    },
     'Weekly Downloads': {
       key: 'weeklyDownloadCount',
       name: 'Weekly Downloads',
@@ -561,6 +549,18 @@ const RepositoriesTable = () => {
           filters={globalFilters}
           updateFilters={setGlobalFilters}
           filterName="weeklyDownloadCount"
+        />
+      ),
+    },
+    'Total Downloads': {
+      key: 'totalDownloadCount',
+      name: 'Total Downloads',
+      renderHeaderCell: (p) => (
+        <MinMaxRenderer
+          headerCellProps={p}
+          filters={globalFilters}
+          updateFilters={setGlobalFilters}
+          filterName="totalDownloadCount"
         />
       ),
     },
