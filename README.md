@@ -33,6 +33,9 @@ You will need to set a secret in the repository settings. The secret is a GitHub
 
 The secret should be named `GRAPHQL_TOKEN`. You can set this for your repository in `Settings` -> `Secrets and variables` -> `Actions`.
 
+We use the PEPY API to fetch package download data. In order to fetch this data you will need an API key from [PEPY](https://www.pepy.tech/pepy-api). 
+You can set this key in the repository secrets as `PEPY_API_KEY`.
+
 ### Configuration
 
 There is a `config.yml` located in the root of the project that contains the configuration for the project. The configuration is as follows:
@@ -82,6 +85,8 @@ The `GRAPHQL_TOKEN` token requires the following scopes:
 
 > [!NOTE]
 > To fetch collaborator counts, you need to provide a token that is an admin of the organization.
+
+The `PEPY_API_KEY` must be set in the `.env` file to fetch package download data.
 
 ### Installation
 
