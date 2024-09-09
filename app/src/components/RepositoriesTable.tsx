@@ -860,14 +860,14 @@ const RepositoriesTable = () => {
             : true) &&
           (globalFilters.totalDownloadCount
             ? (globalFilters.totalDownloadCount?.[0] ?? 0) <=
-            repo.starsCount &&
-            repo.starsCount <=
+            repo.totalDownloadCount &&
+            repo.totalDownloadCount <=
             (globalFilters.totalDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.weeklyDownloadCount
             ? (globalFilters.weeklyDownloadCount?.[0] ?? 0) <=
-            repo.starsCount &&
-            repo.starsCount <=
+            repo.weeklyDownloadCount &&
+            repo.weeklyDownloadCount <=
             (globalFilters.weeklyDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.collaboratorsCount
