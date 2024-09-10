@@ -123,8 +123,6 @@ export const addRepositoriesToResult: Fetcher = async (
     contributorsWaiting = stillWaiting
   }
 
-  console.log(contributorsMap);
-
   return {
     ...result,
     repositories: filteredRepos.reduce(
