@@ -55,6 +55,7 @@ type Filter = {
   weeklyDownloadCount?: Array<number | undefined>;
   monthlyDownloadCount?: Array<number | undefined>;
   totalDownloadCount?: Array<number | undefined>;
+  contributorsCount?: Array<number | undefined>;
   collaboratorsCount?: Array<number | undefined>;
   watchersCount?: Array<number | undefined>;
   openIssuesCount?: Array<number | undefined>;
@@ -399,6 +400,7 @@ const getComparator = (sortColumn: keyof RepositoryResult): Comparator => {
     case 'weeklyDownloadCount':
     case 'monthlyDownloadCount':
     case 'totalDownloadCount':
+    case 'contributorsCount':
     case 'totalIssuesCount':
     case 'mergedPullRequestsCount':
     case 'openIssuesCount':
@@ -565,15 +567,15 @@ const RepositoriesTable = () => {
       ),
     },
     Collaborators: {
-      key: 'collaboratorsCount',
-      name: 'Collaborators',
+      key: 'contributorsCount',
+      name: 'Contributors',
       renderHeaderCell: (p) => {
         return (
           <MinMaxRenderer
             headerCellProps={p}
             filters={globalFilters}
             updateFilters={setGlobalFilters}
-            filterName="collaboratorsCount"
+            filterName="contributorsCount"
           />
         );
       },
@@ -870,11 +872,11 @@ const RepositoriesTable = () => {
             repo.weeklyDownloadCount <=
             (globalFilters.weeklyDownloadCount[1] ?? Infinity)
             : true) &&
-          (globalFilters.collaboratorsCount
-            ? (globalFilters.collaboratorsCount?.[0] ?? 0) <=
-                repo.collaboratorsCount &&
-              repo.collaboratorsCount <=
-                (globalFilters.collaboratorsCount[1] ?? Infinity)
+          (globalFilters.contributorsCount
+            ? (globalFilters.contributorsCount?.[0] ?? 0) <=
+                repo.contributorsCount &&
+              repo.contributorsCount <=
+                (globalFilters.contributorsCount[1] ?? Infinity)
             : true) &&
           (globalFilters.watchersCount
             ? (globalFilters.watchersCount?.[0] ?? 0) <= repo.watchersCount &&
