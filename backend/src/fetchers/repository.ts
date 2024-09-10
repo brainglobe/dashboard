@@ -46,6 +46,9 @@ export const addRepositoriesToResult: Fetcher = async (
           watchers {
             totalCount
           }
+          collaborators {
+            totalCount
+          }
           repositoryTopics(first: 20) {
             nodes {
               topic {

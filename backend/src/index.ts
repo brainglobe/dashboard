@@ -136,7 +136,7 @@ const result = await pipeline(octokit, config)(
   addRepositoriesToResult,
   addIssueAndPrData,
   addDiscussionData,
-  // addIssueMetricsData,
+  addIssueMetricsData,
   addDownloadsPePy,
 );
 
