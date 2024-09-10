@@ -1,6 +1,8 @@
 // Fetchers for repository data and metrics
 
 import { Organization, Repository } from '@octokit/graphql-schema';
+import { Octokit }  from '@octokit/rest';
+import { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { Fetcher } from '..';
 import { RepositoryResult } from '../../../types';
 
@@ -46,9 +48,6 @@ export const addRepositoriesToResult: Fetcher = async (
           watchers {
             totalCount
           }
-          collaborators {
-            totalCount
-          }
           repositoryTopics(first: 20) {
             nodes {
               topic {
@@ -72,6 +71,80 @@ export const addRepositoriesToResult: Fetcher = async (
       !(repo.isFork && !config.includeForks),
   ) as Repository[];
 
+  // const octokitRest = new Octokit(
+  //   {
+  //     auth: process.env.GRAPHQL_TOKEN,
+  //   }
+  // );
+
+  // Just in case the filteredRepos is not stably ordered
+  const contributorsMap = new Map<string, number>();
+
+  // const contributorList = await Promise.all(filteredRepos.map(
+  //   async (repo) => {
+  //     const contributors = await octokitRest.repos.listContributors({
+  //       owner: config.organization,
+  //       repo: repo.name,
+  //     });
+  //     contributorsMap.set(repo.name, contributors.data.length);
+  //     return {
+  //       repoName: repo.name,
+  //       contributorsCount: contributors.data.length,
+  //       };
+  //     }
+  //   )
+  // );
+
+  let contributorsWaiting = []
+  for (const repo of filteredRepos) {
+    let currResult = await octokit.request(`GET /repos/${config.organization}/${repo.name}/stats/contributors`, {
+      owner: config.organization,
+      repo: repo.name,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    })
+
+    if (currResult.status == 200) {
+      contributorsMap.set(repo.name, currResult.data.length);
+    }
+    else if (currResult.status == 202) {
+      console.log(`Contributors data for ${repo.name} is not ready yet`);
+      contributorsWaiting.push(repo)
+    } else {
+      console.error(`Error fetching contributors data for ${repo.name}: ${currResult.status}`);
+    }
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  while (contributorsWaiting.length > 0) {
+    console.log(`Waiting for contributors data from ${contributorsWaiting.length} repositories to be ready`);
+    await sleep(60000);
+    const stillWaiting = []
+    for (const repo of contributorsWaiting) {
+      let currResult = await octokit.request(`GET /repos/${config.organization}/${repo.name}/stats/contributors`, {
+        owner: config.organization,
+        repo: repo.name,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      })
+
+      if (currResult.status === 200) {
+        contributorsMap.set(repo.name, currResult.data.length);
+      } else if (currResult.status === 202) {
+        console.log(`Contributors data for ${repo.name} is not ready yet`);
+        stillWaiting.push(repo)
+      } else {
+        console.error(`Error fetching contributors data for ${repo.name}: ${currResult.status}`);
+      }
+    }
+
+    contributorsWaiting = stillWaiting
+  }
+
+  console.log(contributorsMap);
+
   return {
     ...result,
     repositories: filteredRepos.reduce(
@@ -88,6 +161,7 @@ export const addRepositoriesToResult: Fetcher = async (
             forksCount: repo.forkCount,
             watchersCount: repo.watchers.totalCount,
             starsCount: repo.stargazerCount,
+            contributorsCount: contributorsMap.get(repo.name) || 0,
             issuesEnabled: repo.hasIssuesEnabled,
             projectsEnabled: repo.hasProjectsEnabled,
             discussionsEnabled: repo.hasDiscussionsEnabled,
