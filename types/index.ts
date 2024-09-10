@@ -25,6 +25,7 @@ export interface RepositoryResult {
   monthlyDownloadCount: number;
   weeklyDownloadCount: number;
   dailyDownloadCount: number;
+  contributorsCount: number;
 
   // Flags
   discussionsEnabled: boolean;
