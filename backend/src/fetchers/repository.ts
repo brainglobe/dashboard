@@ -1,8 +1,6 @@
 // Fetchers for repository data and metrics
 
 import { Organization, Repository } from '@octokit/graphql-schema';
-import { Octokit }  from '@octokit/rest';
-import { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { Fetcher } from '..';
 import { RepositoryResult } from '../../../types';
 
@@ -71,29 +69,8 @@ export const addRepositoriesToResult: Fetcher = async (
       !(repo.isFork && !config.includeForks),
   ) as Repository[];
 
-  // const octokitRest = new Octokit(
-  //   {
-  //     auth: process.env.GRAPHQL_TOKEN,
-  //   }
-  // );
-
   // Just in case the filteredRepos is not stably ordered
   const contributorsMap = new Map<string, number>();
-
-  // const contributorList = await Promise.all(filteredRepos.map(
-  //   async (repo) => {
-  //     const contributors = await octokitRest.repos.listContributors({
-  //       owner: config.organization,
-  //       repo: repo.name,
-  //     });
-  //     contributorsMap.set(repo.name, contributors.data.length);
-  //     return {
-  //       repoName: repo.name,
-  //       contributorsCount: contributors.data.length,
-  //       };
-  //     }
-  //   )
-  // );
 
   let contributorsWaiting = []
   for (const repo of filteredRepos) {
