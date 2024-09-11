@@ -5,7 +5,9 @@ export default function NIUPage() {
   return (
     <main className="p-4 md:p-10 mx-auto max-w-7xl h-screen">
       <Layout>
-        <RepositoriesTable />
+        <RepositoriesTable
+          orgName='NIU'
+        />
       </Layout>
     </main>
   );
