@@ -20,10 +20,10 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
       <Box className="flex flex-row items-center gap-6">
         <Image
           className="block h-8 w-auto"
-          src={`${basePath}/images/logo.png`}
+          src={`${basePath}/images/brainglobe.png`}
           height={50}
           width={150}
-          alt="World Health Organization logo"
+          alt="BrainGlobe logo"
         />
         <Text as="h1" className="font-semibold text-xl">
           {data.orgInfo.name} Open Source Dashboard
@@ -68,7 +68,13 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
           href={`${basePath}/`}
           selected={!router.pathname.includes('documentation')}
         >
-          Repositories
+          BrainGlobe Repositories
+        </TabNav.Link>
+        <TabNav.Link
+          href={`${basePath}/niu-repos`}
+          selected={!router.pathname.includes('documentation')}
+        >
+          NIU Repositories
         </TabNav.Link>
         <TabNav.Link
           href={`${basePath}/documentation`}

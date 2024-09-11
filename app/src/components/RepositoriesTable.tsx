@@ -542,15 +542,15 @@ const RepositoriesTable = () => {
           />
         ),
     },
-    'Weekly Downloads': {
-      key: 'weeklyDownloadCount',
-      name: 'Weekly Downloads',
+    'Monthly Downloads': {
+      key: 'monthlyDownloadCount',
+      name: 'Monthly Downloads',
       renderHeaderCell: (p) => (
         <MinMaxRenderer
           headerCellProps={p}
           filters={globalFilters}
           updateFilters={setGlobalFilters}
-          filterName="weeklyDownloadCount"
+          filterName="monthlyDownloadCount"
         />
       ),
     },
@@ -866,11 +866,11 @@ const RepositoriesTable = () => {
             repo.totalDownloadCount <=
             (globalFilters.totalDownloadCount[1] ?? Infinity)
             : true) &&
-          (globalFilters.weeklyDownloadCount
-            ? (globalFilters.weeklyDownloadCount?.[0] ?? 0) <=
-            repo.weeklyDownloadCount &&
-            repo.weeklyDownloadCount <=
-            (globalFilters.weeklyDownloadCount[1] ?? Infinity)
+          (globalFilters.monthlyDownloadCount
+            ? (globalFilters.monthlyDownloadCount?.[0] ?? 0) <=
+            repo.monthlyDownloadCount &&
+            repo.monthlyDownloadCount <=
+            (globalFilters.monthlyDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.contributorsCount
             ? (globalFilters.contributorsCount?.[0] ?? 0) <=
