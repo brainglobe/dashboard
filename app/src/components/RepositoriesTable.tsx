@@ -37,8 +37,6 @@ import {
 } from 'react';
 
 import { RepositoryResult } from '../../../types';
-import BrainGlobeData from '../data/data.json';
-import NIUData from '../data/data_NIU.json';
 import TopicCell from './TopicCell';
 
 interface RepositoryTableProps {
@@ -46,7 +44,8 @@ interface RepositoryTableProps {
 }
 
 const RepositoriesTable = ( {orgName }: RepositoryTableProps ) => {
-  const repoData = orgName === 'NIU' ? NIUData : BrainGlobeData;
+  const dataFileName = `data_${orgName}.json`;
+  const repoData = require(`../data/${dataFileName}`);
   const repos = Object.values(repoData['repositories']) as RepositoryResult[];
 
   function inputStopPropagation(event: KeyboardEvent<HTMLInputElement>) {
