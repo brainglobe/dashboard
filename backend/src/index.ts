@@ -135,11 +135,11 @@ for (const orgName of configOrganizationName) {
   const result = await pipeline(octokit, config)(
     addMetaToResult,
     addOrganizationInfoToResult,
-    // addRepositoriesToResult,
+    addRepositoriesToResult,
     addIssueAndPrData,
-    // addDiscussionData,
-    // addIssueMetricsData,
-    // addDownloadsPePy,
+    addDiscussionData,
+    addIssueMetricsData,
+    addDownloadsPePy,
   );
 
   outputResult(result, orgName);
