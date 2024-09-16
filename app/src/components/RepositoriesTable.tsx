@@ -43,10 +43,11 @@ interface RepositoryTableProps {
   orgName: string;
 }
 
-const RepositoriesTable = ( {orgName }: RepositoryTableProps ) => {
+const RepositoriesTable = ({ orgName }: RepositoryTableProps) => {
   const dataFileName = `data_${orgName}.json`;
+  // eslint-disable-next-line import/no-dynamic-require
   const repoData = require(`../data/${dataFileName}`);
-  const repos = Object.values(repoData['repositories']) as RepositoryResult[];
+  const repos: RepositoryResult[] = Object.values(repoData['repositories']);
 
   function inputStopPropagation(event: KeyboardEvent<HTMLInputElement>) {
     event.stopPropagation();

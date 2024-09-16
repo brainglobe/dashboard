@@ -8,7 +8,7 @@ import { XIcon } from '@primer/octicons-react';
 import { useRouter } from 'next/router';
 import { FC, PropsWithChildren } from 'react';
 import { basePath } from '../../generated/basePath';
-import data from '../data/data.json';
+import data from '../data/data_brainglobe.json';
 
 export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const router = useRouter();
