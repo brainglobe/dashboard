@@ -76,7 +76,7 @@ try {
 }
 
 const envOrganizationName = process.env.ORGANIZATION_NAME;
-const configOrganizationName = yamlConfig.organization;
+const configOrganizationName = yamlConfig.organization as unknown as string[];
 
 if (!envOrganizationName && !configOrganizationName) {
   console.log(
@@ -87,57 +87,62 @@ if (!envOrganizationName && !configOrganizationName) {
   );
 }
 
-const config: Config = {
-  includeForks: false,
-  includeArchived: false,
-  ...yamlConfig,
-  // You can override the organization in an env variable ORGANIZATION_NAME
-  organization:
-    (envOrganizationName && envOrganizationName?.length !== 0
-      ? envOrganizationName
-      : configOrganizationName) ?? '',
-  // Default since date is 365 days ago (1 year)
-  since: yamlConfig.since
-    ? new Date(yamlConfig.since).toISOString()
-    : new Date(Date.now() - 365 * (24 * 60 * 60 * 1000)).toISOString(),
-};
-
-console.log(`📋  Configuration: \n${JSON.stringify(config, null, 2)}`);
-
 const pipeline =
   (octokit: CustomOctokit, config: Config) =>
-  async (...fetchers: Fetcher[]) => {
-    let result = {} as Result;
+    async (...fetchers: Fetcher[]) => {
+      let result = {} as Result;
 
-    for (const fetcher of fetchers) {
-      console.log(`🔧  Running fetcher ${fetcher.name}`);
-      result = await fetcher(result, octokit, config);
-      console.log(`✨  Finished ${fetcher.name}`);
-      const res = await checkRateLimit(octokit);
-      console.log(
-        `⚙️  Rate limit: ${res.remaining}/${
-          res.limit
-        } remaining until ${res.resetDate.toLocaleString()}`,
-      );
-    }
+      for (const fetcher of fetchers) {
+        console.log(`🔧  Running fetcher ${fetcher.name}`);
+        result = await fetcher(result, octokit, config);
+        console.log(`✨  Finished ${fetcher.name}`);
+        const res = await checkRateLimit(octokit);
+        console.log(
+          `⚙️  Rate limit: ${res.remaining}/${
+            res.limit
+          } remaining until ${res.resetDate.toLocaleString()}`,
+        );
+      }
 
-    return result;
-  };
+      return result;
+    };
 
-const outputResult = async (result: Result) => {
-  const destination = '../app/src/data/data.json';
+const outputResult = async (result: Result, orgName: string) => {
+  const destination = `../app/src/data/data_${orgName}.json`;
   fs.outputJSONSync(destination, result, { spaces: 2 });
   console.log(`📦  Wrote result to ${destination}`);
 };
 
-const result = await pipeline(octokit, config)(
-  addMetaToResult,
-  addOrganizationInfoToResult,
-  addRepositoriesToResult,
-  addIssueAndPrData,
-  addDiscussionData,
-  addIssueMetricsData,
-  addDownloadsPePy,
-);
+for (const orgName of configOrganizationName) {
+  console.log(`\n🔍  Fetching data for organization ${orgName}`);
+  const config: Config = {
+    includeForks: false,
+    includeArchived: false,
+    ...yamlConfig,
+    // You can override the organization in an env variable ORGANIZATION_NAME
+    organization:
+      (envOrganizationName && envOrganizationName?.length !== 0
+        ? envOrganizationName
+        : orgName) ?? '',
+    // Default since date is 365 days ago (1 year)
+    since: yamlConfig.since
+      ? new Date(yamlConfig.since).toISOString()
+      : new Date(Date.now() - 365 * (24 * 60 * 60 * 1000)).toISOString(),
+  };
 
-outputResult(result);
+  console.log(`📋  Configuration: \n${JSON.stringify(config, null, 2)}`);
+
+  const result = await pipeline(octokit, config)(
+    addMetaToResult,
+    addOrganizationInfoToResult,
+    addRepositoriesToResult,
+    addIssueAndPrData,
+    addDiscussionData,
+    addIssueMetricsData,
+    addDownloadsPePy,
+  );
+
+  outputResult(result, orgName);
+
+  console.log(`🎉  Finished fetching data for organization ${orgName}\n`);
+}

@@ -8,7 +8,7 @@ import { XIcon } from '@primer/octicons-react';
 import { useRouter } from 'next/router';
 import { FC, PropsWithChildren } from 'react';
 import { basePath } from '../../generated/basePath';
-import data from '../data/data.json';
+import data from '../data/data_brainglobe.json';
 
 export const Layout: FC<PropsWithChildren> = ({ children }) => {
   const router = useRouter();
@@ -20,10 +20,10 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
       <Box className="flex flex-row items-center gap-6">
         <Image
           className="block h-8 w-auto"
-          src={`${basePath}/images/logo.png`}
+          src={`${basePath}/images/brainglobe.png`}
           height={50}
           width={150}
-          alt="World Health Organization logo"
+          alt="BrainGlobe logo"
         />
         <Text as="h1" className="font-semibold text-xl">
           {data.orgInfo.name} Open Source Dashboard
@@ -66,9 +66,18 @@ export const Layout: FC<PropsWithChildren> = ({ children }) => {
       <TabNav aria-label="Main" className="mt-8">
         <TabNav.Link
           href={`${basePath}/`}
-          selected={!router.pathname.includes('documentation')}
+          selected={
+            !router.pathname.includes('documentation') &&
+            !router.pathname.includes('niu')
+          }
         >
-          Repositories
+          BrainGlobe Repositories
+        </TabNav.Link>
+        <TabNav.Link
+          href={`${basePath}/niu`}
+          selected={router.pathname.includes('niu')}
+        >
+          NIU Repositories
         </TabNav.Link>
         <TabNav.Link
           href={`${basePath}/documentation`}

@@ -37,214 +37,266 @@ import {
 } from 'react';
 
 import { RepositoryResult } from '../../../types';
-import Data from '../data/data.json';
 import TopicCell from './TopicCell';
 
-const repos = Object.values(Data['repositories']) as RepositoryResult[];
-
-function inputStopPropagation(event: KeyboardEvent<HTMLInputElement>) {
-  event.stopPropagation();
+interface RepositoryTableProps {
+  orgName: string;
 }
 
-type Filter = {
-  repositoryName?: Record<string, boolean>;
-  licenseName?: Record<string, boolean>;
-  topics?: Record<string, boolean>;
-  starsCount?: Array<number | undefined>;
-  dailyDownloadCount?: Array<number | undefined>;
-  weeklyDownloadCount?: Array<number | undefined>;
-  monthlyDownloadCount?: Array<number | undefined>;
-  totalDownloadCount?: Array<number | undefined>;
-  contributorsCount?: Array<number | undefined>;
-  collaboratorsCount?: Array<number | undefined>;
-  watchersCount?: Array<number | undefined>;
-  openIssuesCount?: Array<number | undefined>;
-  openPullRequestsCount?: Array<number | undefined>;
-  closedIssuesCount?: Array<number | undefined>;
-  mergedPullRequestsCount?: Array<number | undefined>;
-  forksCount?: Array<number | undefined>;
-  openIssuesMedianAge?: Array<number | undefined>;
-  openIssuesAverageAge?: Array<number | undefined>;
-  closedIssuesMedianAge?: Array<number | undefined>;
-  closedIssuesAverageAge?: Array<number | undefined>;
-  issuesResponseMedianAge?: Array<number | undefined>;
-  issuesResponseAverageAge?: Array<number | undefined>;
-};
+const RepositoriesTable = ({ orgName }: RepositoryTableProps) => {
+  const dataFileName = `data_${orgName}.json`;
+  // eslint-disable-next-line import/no-dynamic-require
+  const repoData = require(`../data/${dataFileName}`);
+  const repos: RepositoryResult[] = Object.values(repoData['repositories']);
 
-type SelectOption = {
-  label: string | number;
-  value: string | number;
-};
-
-const millisecondsToDisplayString = (milliseconds: number) => {
-  const days = milliseconds / 1000 / 60 / 60 / 24;
-  if (days === 0) {
-    return 'N/A';
-  }
-  if (days < 1) {
-    return `<1 day`;
+  function inputStopPropagation(event: KeyboardEvent<HTMLInputElement>) {
+    event.stopPropagation();
   }
 
-  if (days < 2) {
-    return `1 day`;
-  }
+  type Filter = {
+    repositoryName?: Record<string, boolean>;
+    licenseName?: Record<string, boolean>;
+    topics?: Record<string, boolean>;
+    starsCount?: Array<number | undefined>;
+    dailyDownloadCount?: Array<number | undefined>;
+    weeklyDownloadCount?: Array<number | undefined>;
+    monthlyDownloadCount?: Array<number | undefined>;
+    totalDownloadCount?: Array<number | undefined>;
+    contributorsCount?: Array<number | undefined>;
+    collaboratorsCount?: Array<number | undefined>;
+    watchersCount?: Array<number | undefined>;
+    openIssuesCount?: Array<number | undefined>;
+    openPullRequestsCount?: Array<number | undefined>;
+    closedIssuesCount?: Array<number | undefined>;
+    mergedPullRequestsCount?: Array<number | undefined>;
+    forksCount?: Array<number | undefined>;
+    openIssuesMedianAge?: Array<number | undefined>;
+    openIssuesAverageAge?: Array<number | undefined>;
+    closedIssuesMedianAge?: Array<number | undefined>;
+    closedIssuesAverageAge?: Array<number | undefined>;
+    issuesResponseMedianAge?: Array<number | undefined>;
+    issuesResponseAverageAge?: Array<number | undefined>;
+  };
 
-  return `${Math.floor(days)} days`;
-};
+  type SelectOption = {
+    label: string | number;
+    value: string | number;
+  };
 
-// This selects a field to populate a dropdown with
-const dropdownOptions = (
-  field: keyof RepositoryResult,
-  filter = '',
-): SelectOption[] => {
-  let options = [];
-  if (field === 'topics') {
-    options = Array.from(new Set(repos.flatMap((repo) => repo.topics))).sort();
-  } else {
-    options = Array.from(new Set(repos.map((repo) => repo[field])));
-  }
-  return options
-    .map((fieldName) => ({
-      // some fields are boolean (hasXxEnabled), so we need to convert them to strings
-      label: typeof fieldName === 'boolean' ? fieldName.toString() : fieldName,
-      value: typeof fieldName === 'boolean' ? fieldName.toString() : fieldName,
-    }))
-    .filter((fieldName) =>
-      (fieldName.value as string).toLowerCase().includes(filter.toLowerCase()),
-    );
-};
+  const millisecondsToDisplayString = (milliseconds: number) => {
+    const days = milliseconds / 1000 / 60 / 60 / 24;
+    if (days === 0) {
+      return 'N/A';
+    }
+    if (days < 1) {
+      return `<1 day`;
+    }
 
-// Helper function to get the selected option value from a filter and field
-const getSelectedOption = (
-  filters: Filter,
-  filterName: keyof Filter,
-  filterField: string,
-  defaultValue = false,
-) =>
-  (filters[filterName] as Record<string, boolean>)[filterField] ?? defaultValue;
+    if (days < 2) {
+      return `1 day`;
+    }
 
-// Renderer for the min/max filter inputs
-const MinMaxRenderer: FC<{
-  headerCellProps: RenderHeaderCellProps<RepositoryResult>;
-  filters: Filter;
-  updateFilters: ((filters: Filter) => void) &
-    ((filters: (updatedFilters: Filter) => Filter) => void);
-  filterName: keyof Filter;
-}> = ({ headerCellProps, filters, updateFilters, filterName }) => {
-  return (
-    <HeaderCellRenderer<RepositoryResult> {...headerCellProps}>
-      {({ ...rest }) => (
-        <Box className="w-full">
-          <FormControl>
-            <FormControl.Label htmlFor={`${filterName}Min`}>
-              Min
-            </FormControl.Label>
-            <TextInput
-              {...rest}
-              id={`${filterName}Min`}
-              className="w-full"
-              type="number"
-              placeholder="0"
-              onChange={(e) => {
-                updateFilters((globalFilters) => ({
-                  ...globalFilters,
-                  [filterName]: [
-                    Number(e.target.value),
-                    (
-                      globalFilters[filterName] as Array<number | undefined>
-                    )?.[1],
-                  ],
-                }));
-              }}
-              onKeyDown={inputStopPropagation}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </FormControl>
-          <FormControl>
-            <FormControl.Label htmlFor={`${filterName}Max`}>
-              Max
-            </FormControl.Label>
-            <TextInput
-              {...rest}
-              id={`${filterName}Max`}
-              className="w-full"
-              type="number"
-              placeholder="100"
-              onChange={(e) =>
-                updateFilters({
-                  ...filters,
-                  [filterName]: [0, Number(e.target.value)],
-                })
-              }
-              onKeyDown={inputStopPropagation}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </FormControl>
-        </Box>
-      )}
-    </HeaderCellRenderer>
-  );
-};
+    return `${Math.floor(days)} days`;
+  };
 
-// Renderer for the searchable select filter
-const SearchableSelectRenderer: FC<{
-  headerCellProps: RenderHeaderCellProps<RepositoryResult>;
-  filters: Filter;
-  updateFilters: ((filters: Filter) => void) &
-    ((filters: (newFilters: Filter) => Filter) => void);
-  filterName: keyof Filter;
-}> = ({ headerCellProps, filters, updateFilters, filterName }) => {
-  const [filteredOptions, setFilteredOptions] = useState<string>('');
-  const allSelectOptions = dropdownOptions(filterName, filteredOptions);
+  // This selects a field to populate a dropdown with
+  const dropdownOptions = (
+    field: keyof RepositoryResult,
+    filter = '',
+  ): SelectOption[] => {
+    let options = [];
+    if (field === 'topics') {
+      options = Array.from(
+        new Set(repos.flatMap((repo) => repo.topics)),
+      ).sort();
+    } else {
+      options = Array.from(new Set(repos.map((repo) => repo[field])));
+    }
+    return options
+      .map((fieldName) => ({
+        // some fields are boolean (hasXxEnabled), so we need to convert them to strings
+        label:
+          typeof fieldName === 'boolean' ? fieldName.toString() : fieldName,
+        value:
+          typeof fieldName === 'boolean' ? fieldName.toString() : fieldName,
+      }))
+      .filter((fieldName) =>
+        (fieldName.value as string)
+          .toLowerCase()
+          .includes(filter.toLowerCase()),
+      );
+  };
 
-  return (
-    <HeaderCellRenderer<RepositoryResult> {...headerCellProps}>
-      {({ ...rest }) => (
-        <Box>
-          <TextInput
-            {...rest}
-            className="w-full"
-            value={filteredOptions}
-            onChange={(e) => setFilteredOptions(e.target.value)}
-            trailingAction={
-              <TextInput.Action
-                onClick={() => {
-                  setFilteredOptions('');
-                }}
-                icon={XIcon}
-                aria-label="Clear input"
-                sx={{ color: 'fg.subtle' }}
-              />
-            }
-          />
-          <Box className="h-80 overflow-auto w-100 mt-2">
-            <ActionList>
-              <ActionList.Item
-                onClick={() => {
-                  updateFilters((otherFilters) => ({
-                    ...otherFilters,
-                    [filterName]: {
-                      ...otherFilters[filterName],
-                      all: !getSelectedOption(filters, filterName, 'all', true),
-                    },
+  // Helper function to get the selected option value from a filter and field
+  const getSelectedOption = (
+    filters: Filter,
+    filterName: keyof Filter,
+    filterField: string,
+    defaultValue = false,
+  ) =>
+    (filters[filterName] as Record<string, boolean>)[filterField] ??
+    defaultValue;
+
+  // Renderer for the min/max filter inputs
+  const MinMaxRenderer: FC<{
+    headerCellProps: RenderHeaderCellProps<RepositoryResult>;
+    filters: Filter;
+    updateFilters: ((filters: Filter) => void) &
+      ((filters: (updatedFilters: Filter) => Filter) => void);
+    filterName: keyof Filter;
+  }> = ({ headerCellProps, filters, updateFilters, filterName }) => {
+    return (
+      <HeaderCellRenderer<RepositoryResult> {...headerCellProps}>
+        {({ ...rest }) => (
+          <Box className="w-full">
+            <FormControl>
+              <FormControl.Label htmlFor={`${filterName}Min`}>
+                Min
+              </FormControl.Label>
+              <TextInput
+                {...rest}
+                id={`${filterName}Min`}
+                className="w-full"
+                type="number"
+                placeholder="0"
+                onChange={(e) => {
+                  updateFilters((globalFilters) => ({
+                    ...globalFilters,
+                    [filterName]: [
+                      Number(e.target.value),
+                      (
+                        globalFilters[filterName] as Array<number | undefined>
+                      )?.[1],
+                    ],
                   }));
                 }}
-              >
-                <ActionList.LeadingVisual>
-                  <Checkbox
-                    type="checkbox"
-                    checked={getSelectedOption(
-                      filters,
-                      filterName,
-                      'all',
-                      true,
-                    )}
-                  />
-                </ActionList.LeadingVisual>
-                <Box>All</Box>
-              </ActionList.Item>
-              {allSelectOptions.map((selectOption) => {
-                if (selectOption.value === '') {
+                onKeyDown={inputStopPropagation}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </FormControl>
+            <FormControl>
+              <FormControl.Label htmlFor={`${filterName}Max`}>
+                Max
+              </FormControl.Label>
+              <TextInput
+                {...rest}
+                id={`${filterName}Max`}
+                className="w-full"
+                type="number"
+                placeholder="100"
+                onChange={(e) =>
+                  updateFilters({
+                    ...filters,
+                    [filterName]: [0, Number(e.target.value)],
+                  })
+                }
+                onKeyDown={inputStopPropagation}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </FormControl>
+          </Box>
+        )}
+      </HeaderCellRenderer>
+    );
+  };
+
+  // Renderer for the searchable select filter
+  const SearchableSelectRenderer: FC<{
+    headerCellProps: RenderHeaderCellProps<RepositoryResult>;
+    filters: Filter;
+    updateFilters: ((filters: Filter) => void) &
+      ((filters: (newFilters: Filter) => Filter) => void);
+    filterName: keyof Filter;
+  }> = ({ headerCellProps, filters, updateFilters, filterName }) => {
+    const [filteredOptions, setFilteredOptions] = useState<string>('');
+    const allSelectOptions = dropdownOptions(filterName, filteredOptions);
+
+    return (
+      <HeaderCellRenderer<RepositoryResult> {...headerCellProps}>
+        {({ ...rest }) => (
+          <Box>
+            <TextInput
+              {...rest}
+              className="w-full"
+              value={filteredOptions}
+              onChange={(e) => setFilteredOptions(e.target.value)}
+              trailingAction={
+                <TextInput.Action
+                  onClick={() => {
+                    setFilteredOptions('');
+                  }}
+                  icon={XIcon}
+                  aria-label="Clear input"
+                  sx={{ color: 'fg.subtle' }}
+                />
+              }
+            />
+            <Box className="h-80 overflow-auto w-100 mt-2">
+              <ActionList>
+                <ActionList.Item
+                  onClick={() => {
+                    updateFilters((otherFilters) => ({
+                      ...otherFilters,
+                      [filterName]: {
+                        ...otherFilters[filterName],
+                        all: !getSelectedOption(
+                          filters,
+                          filterName,
+                          'all',
+                          true,
+                        ),
+                      },
+                    }));
+                  }}
+                >
+                  <ActionList.LeadingVisual>
+                    <Checkbox
+                      type="checkbox"
+                      checked={getSelectedOption(
+                        filters,
+                        filterName,
+                        'all',
+                        true,
+                      )}
+                    />
+                  </ActionList.LeadingVisual>
+                  <Box>All</Box>
+                </ActionList.Item>
+                {allSelectOptions.map((selectOption) => {
+                  if (selectOption.value === '') {
+                    return (
+                      <>
+                        <ActionList.Item
+                          onClick={() => {
+                            updateFilters((otherFilters) => ({
+                              ...otherFilters,
+                              [filterName]: {
+                                ...otherFilters[filterName],
+                                [selectOption.value]: !getSelectedOption(
+                                  filters,
+                                  filterName,
+                                  selectOption.value as string,
+                                ),
+                              },
+                            }));
+                          }}
+                        >
+                          <ActionList.LeadingVisual>
+                            <Checkbox
+                              type="checkbox"
+                              checked={
+                                (
+                                  filters[filterName] as Record<string, boolean>
+                                )?.[selectOption.value] ?? false
+                              }
+                            />
+                          </ActionList.LeadingVisual>
+                          <Box>No License</Box>
+                        </ActionList.Item>
+                      </>
+                    );
+                  }
+
                   return (
                     <>
                       <ActionList.Item
@@ -265,211 +317,177 @@ const SearchableSelectRenderer: FC<{
                         <ActionList.LeadingVisual>
                           <Checkbox
                             type="checkbox"
-                            checked={
-                              (
-                                filters[filterName] as Record<string, boolean>
-                              )?.[selectOption.value] ?? false
-                            }
-                          />
-                        </ActionList.LeadingVisual>
-                        <Box>No License</Box>
-                      </ActionList.Item>
-                    </>
-                  );
-                }
-
-                return (
-                  <>
-                    <ActionList.Item
-                      onClick={() => {
-                        updateFilters((otherFilters) => ({
-                          ...otherFilters,
-                          [filterName]: {
-                            ...otherFilters[filterName],
-                            [selectOption.value]: !getSelectedOption(
+                            checked={getSelectedOption(
                               filters,
                               filterName,
                               selectOption.value as string,
-                            ),
-                          },
-                        }));
-                      }}
-                    >
-                      <ActionList.LeadingVisual>
-                        <Checkbox
-                          type="checkbox"
-                          checked={getSelectedOption(
-                            filters,
-                            filterName,
-                            selectOption.value as string,
-                          )}
-                        />
-                      </ActionList.LeadingVisual>
-                      <Box>{selectOption.value}</Box>
-                    </ActionList.Item>
-                  </>
-                );
-              })}
-            </ActionList>
+                            )}
+                          />
+                        </ActionList.LeadingVisual>
+                        <Box>{selectOption.value}</Box>
+                      </ActionList.Item>
+                    </>
+                  );
+                })}
+              </ActionList>
+            </Box>
           </Box>
-        </Box>
-      )}
-    </HeaderCellRenderer>
-  );
-};
-
-// Wrapper for rendering column header cell
-const HeaderCellRenderer = <R = unknown,>({
-  tabIndex,
-  column,
-  children: filterFunction,
-  sortDirection,
-}: RenderHeaderCellProps<R> & {
-  children: (args: { tabIndex: number; filters: Filter }) => ReactElement;
-}) => {
-  const filters = useContext(FilterContext)!;
-  const clickMeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-
-  return (
-    <div className="flex flex-row justify-between items-center">
-      <div>{column.name}</div>
-      <div className="flex flex-row items-center space-x-2">
-        {sortDirection === 'DESC' ? (
-          <TriangleDownIcon size={24} />
-        ) : sortDirection === 'ASC' ? (
-          <TriangleUpIcon size={24} />
-        ) : (
-          <TriangleUpIcon size={24} className="opacity-0" />
         )}
-        <Popover
-          isOpen={isPopoverOpen}
-          positions={['bottom', 'top', 'right', 'left']}
-          padding={10}
-          onClickOutside={() => setIsPopoverOpen(false)}
-          ref={clickMeButtonRef} // if you'd like a ref to your popover's child, you can grab one here
-          content={() => (
-            // The click handler here is used to stop the header from being sorted
-            <Box
-              className="shadow-xl min-w-64 p-4 rounded"
-              onClick={(e) => e.stopPropagation()}
-              sx={{
-                backgroundColor: 'Background',
-                border: '1px solid',
-                borderColor: 'border.default',
+      </HeaderCellRenderer>
+    );
+  };
+
+  // Wrapper for rendering column header cell
+  const HeaderCellRenderer = <R = unknown,>({
+    tabIndex,
+    column,
+    children: filterFunction,
+    sortDirection,
+  }: RenderHeaderCellProps<R> & {
+    children: (args: { tabIndex: number; filters: Filter }) => ReactElement;
+  }) => {
+    const filters = useContext(FilterContext)!;
+    const clickMeButtonRef = useRef<HTMLButtonElement | null>(null);
+    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+    return (
+      <div className="flex flex-row justify-between items-center">
+        <div>{column.name}</div>
+        <div className="flex flex-row items-center space-x-2">
+          {sortDirection === 'DESC' ? (
+            <TriangleDownIcon size={24} />
+          ) : sortDirection === 'ASC' ? (
+            <TriangleUpIcon size={24} />
+          ) : (
+            <TriangleUpIcon size={24} className="opacity-0" />
+          )}
+          <Popover
+            isOpen={isPopoverOpen}
+            positions={['bottom', 'top', 'right', 'left']}
+            padding={10}
+            onClickOutside={() => setIsPopoverOpen(false)}
+            ref={clickMeButtonRef} // if you'd like a ref to your popover's child, you can grab one here
+            content={() => (
+              // The click handler here is used to stop the header from being sorted
+              <Box
+                className="shadow-xl min-w-64 p-4 rounded"
+                onClick={(e) => e.stopPropagation()}
+                sx={{
+                  backgroundColor: 'Background',
+                  border: '1px solid',
+                  borderColor: 'border.default',
+                }}
+              >
+                <FormControl>
+                  <FormControl.Label>Filter by {column.name}</FormControl.Label>
+                  {filterFunction({ tabIndex, filters })}
+                </FormControl>
+              </Box>
+            )}
+          >
+            <Button
+              variant="invisible"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPopoverOpen((isOpen) => !isOpen);
               }}
             >
-              <FormControl>
-                <FormControl.Label>Filter by {column.name}</FormControl.Label>
-                {filterFunction({ tabIndex, filters })}
-              </FormControl>
-            </Box>
-          )}
-        >
-          <Button
-            variant="invisible"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsPopoverOpen((isOpen) => !isOpen);
-            }}
-          >
-            Filters
-          </Button>
-        </Popover>
+              Filters
+            </Button>
+          </Popover>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-// Context is needed to read filter values otherwise columns are
-// re-created when filters are changed and filter loses focus
-const FilterContext = createContext<Filter | undefined>(undefined);
+  // Context is needed to read filter values otherwise columns are
+  // re-created when filters are changed and filter loses focus
+  const FilterContext = createContext<Filter | undefined>(undefined);
 
-type Comparator = (a: RepositoryResult, b: RepositoryResult) => number;
+  type Comparator = (a: RepositoryResult, b: RepositoryResult) => number;
 
-const getComparator = (sortColumn: keyof RepositoryResult): Comparator => {
-  switch (sortColumn) {
-    // number based sorting
-    case 'closedIssuesCount':
-    case 'collaboratorsCount':
-    case 'discussionsCount':
-    case 'forksCount':
-    case 'starsCount':
-    case 'dailyDownloadCount':
-    case 'weeklyDownloadCount':
-    case 'monthlyDownloadCount':
-    case 'totalDownloadCount':
-    case 'contributorsCount':
-    case 'totalIssuesCount':
-    case 'mergedPullRequestsCount':
-    case 'openIssuesCount':
-    case 'openPullRequestsCount':
-    case 'projectsCount':
-    case 'watchersCount':
-    case 'openIssuesMedianAge':
-    case 'openIssuesAverageAge':
-    case 'closedIssuesMedianAge':
-    case 'closedIssuesAverageAge':
-    case 'issuesResponseMedianAge':
-    case 'issuesResponseAverageAge':
-      return (a, b) => {
-        if (a[sortColumn] === b[sortColumn]) {
-          return 0;
-        }
+  const getComparator = (sortColumn: keyof RepositoryResult): Comparator => {
+    switch (sortColumn) {
+      // number based sorting
+      case 'closedIssuesCount':
+      case 'collaboratorsCount':
+      case 'discussionsCount':
+      case 'forksCount':
+      case 'starsCount':
+      case 'dailyDownloadCount':
+      case 'weeklyDownloadCount':
+      case 'monthlyDownloadCount':
+      case 'totalDownloadCount':
+      case 'contributorsCount':
+      case 'totalIssuesCount':
+      case 'mergedPullRequestsCount':
+      case 'openIssuesCount':
+      case 'openPullRequestsCount':
+      case 'projectsCount':
+      case 'watchersCount':
+      case 'openIssuesMedianAge':
+      case 'openIssuesAverageAge':
+      case 'closedIssuesMedianAge':
+      case 'closedIssuesAverageAge':
+      case 'issuesResponseMedianAge':
+      case 'issuesResponseAverageAge':
+        return (a, b) => {
+          if (a[sortColumn] === b[sortColumn]) {
+            return 0;
+          }
 
-        if (a[sortColumn] > b[sortColumn]) {
-          return 1;
-        }
+          if (a[sortColumn] > b[sortColumn]) {
+            return 1;
+          }
 
-        return -1;
-      };
+          return -1;
+        };
 
-    // alphabetical sorting
-    case 'licenseName':
-    case 'repoNameWithOwner':
-    case 'repositoryName':
-      return (a, b) => {
-        return a[sortColumn]
-          .toLowerCase()
-          .localeCompare(b[sortColumn].toLowerCase());
-      };
+      // alphabetical sorting
+      case 'licenseName':
+      case 'repoNameWithOwner':
+      case 'repositoryName':
+        return (a, b) => {
+          return a[sortColumn]
+            .toLowerCase()
+            .localeCompare(b[sortColumn].toLowerCase());
+        };
 
-    // Multi option, alphabetical
-    case 'topics':
-      return (a, b) => {
-        const first = a[sortColumn].sort()[0];
-        const second = b[sortColumn].sort()[0];
-        if (!second) return -1;
-        if (!first) return 1;
-        return first.toLowerCase().localeCompare(second.toLowerCase());
-      };
+      // Multi option, alphabetical
+      case 'topics':
+        return (a, b) => {
+          const first = a[sortColumn].sort()[0];
+          const second = b[sortColumn].sort()[0];
+          if (!second) return -1;
+          if (!first) return 1;
+          return first.toLowerCase().localeCompare(second.toLowerCase());
+        };
 
-    default:
-      throw new Error(`unsupported sortColumn: "${sortColumn}"`);
-  }
-};
+      default:
+        throw new Error(`unsupported sortColumn: "${sortColumn}"`);
+    }
+  };
 
-// Default set of filters
-const defaultFilters: Filter = {
-  repositoryName: {
-    all: true,
-  },
-  licenseName: {
-    all: true,
-  },
-  topics: {
-    all: true,
-  },
-};
+  // Default set of filters
+  const defaultFilters: Filter = {
+    repositoryName: {
+      all: true,
+    },
+    licenseName: {
+      all: true,
+    },
+    topics: {
+      all: true,
+    },
+  };
 
-// Helper for generating the csv blob
-const generateCSV = (data: RepositoryResult[]): Blob => {
-  const output = json2csv(data);
-  return new Blob([output], { type: 'text/csv' });
-};
+  // Helper for generating the csv blob
+  const generateCSV = (data: RepositoryResult[]): Blob => {
+    const output = json2csv(data);
+    return new Blob([output], { type: 'text/csv' });
+  };
 
-const RepositoriesTable = () => {
   const [globalFilters, setGlobalFilters] = useState<Filter>(defaultFilters);
 
   // This needs a type, technically it's a Column but needs to be typed
@@ -534,13 +552,13 @@ const RepositoriesTable = () => {
       key: 'starsCount',
       name: 'Stars',
       renderHeaderCell: (p) => (
-          <MinMaxRenderer
-            headerCellProps={p}
-            filters={globalFilters}
-            updateFilters={setGlobalFilters}
-            filterName="starsCount"
-          />
-        ),
+        <MinMaxRenderer
+          headerCellProps={p}
+          filters={globalFilters}
+          updateFilters={setGlobalFilters}
+          filterName="starsCount"
+        />
+      ),
     },
     'Monthly Downloads': {
       key: 'monthlyDownloadCount',
@@ -855,22 +873,20 @@ const RepositoriesTable = () => {
           ((globalFilters.licenseName?.[repo.licenseName] ?? false) ||
             (globalFilters.licenseName?.['all'] ?? false)) &&
           (globalFilters.starsCount
-            ? (globalFilters.starsCount?.[0] ?? 0) <=
-                repo.starsCount &&
-              repo.starsCount <=
-                (globalFilters.starsCount[1] ?? Infinity)
+            ? (globalFilters.starsCount?.[0] ?? 0) <= repo.starsCount &&
+              repo.starsCount <= (globalFilters.starsCount[1] ?? Infinity)
             : true) &&
           (globalFilters.totalDownloadCount
             ? (globalFilters.totalDownloadCount?.[0] ?? 0) <=
-            repo.totalDownloadCount &&
-            repo.totalDownloadCount <=
-            (globalFilters.totalDownloadCount[1] ?? Infinity)
+                repo.totalDownloadCount &&
+              repo.totalDownloadCount <=
+                (globalFilters.totalDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.monthlyDownloadCount
             ? (globalFilters.monthlyDownloadCount?.[0] ?? 0) <=
-            repo.monthlyDownloadCount &&
-            repo.monthlyDownloadCount <=
-            (globalFilters.monthlyDownloadCount[1] ?? Infinity)
+                repo.monthlyDownloadCount &&
+              repo.monthlyDownloadCount <=
+                (globalFilters.monthlyDownloadCount[1] ?? Infinity)
             : true) &&
           (globalFilters.contributorsCount
             ? (globalFilters.contributorsCount?.[0] ?? 0) <=
@@ -961,7 +977,7 @@ const RepositoriesTable = () => {
   );
 
   const displayRows = filterRepos(sortRepos(repos));
-  const createdDate = new Date(Data.meta.createdAt);
+  const createdDate = new Date(repoData.meta.createdAt);
 
   return (
     <Box className="h-full flex flex-col">

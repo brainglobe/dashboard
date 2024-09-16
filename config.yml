@@ -1,6 +1,6 @@
 ---
-# Organization to pull metrics from
-organization: 'brainglobe'
+# Organization to pull metrics from (must be an array)
+organization: ['brainglobe', 'neuroinformatics-unit']
 
 # Start date to pull metrics from
 since: '2018-01-01'

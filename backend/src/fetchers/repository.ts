@@ -46,9 +46,6 @@ export const addRepositoriesToResult: Fetcher = async (
           watchers {
             totalCount
           }
-          collaborators {
-            totalCount
-          }
           repositoryTopics(first: 20) {
             nodes {
               topic {
@@ -100,7 +97,7 @@ export const addRepositoriesToResult: Fetcher = async (
   while (contributorsWaiting.length > 0) {
     console.log(`Waiting for contributors data from ${contributorsWaiting.length} repositories to be ready`);
     await sleep(60000);
-    const stillWaiting = []
+    const stillWaiting: Repository[] = []
     for (const repo of contributorsWaiting) {
       let currResult = await octokit.request(`GET /repos/${config.organization}/${repo.name}/stats/contributors`, {
         owner: config.organization,
