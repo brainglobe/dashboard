@@ -7,4 +7,4 @@ since: '2018-01-01'
 
 # GitHub Pages path to the repository
 # Used for handling relative paths for assets
-basePath: '/org-metrics-dashboard'
+basePath: '/dashboard'
