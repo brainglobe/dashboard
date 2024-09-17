@@ -1,1 +1,1 @@
-export const basePath = '/org-metrics-dashboard';
+export const basePath = '';
