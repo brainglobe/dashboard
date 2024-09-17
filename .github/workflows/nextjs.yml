@@ -82,7 +82,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Restore conda downloads cache
-        uses: actions/cache@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d # v3
+        uses: actions/cache@734d9cb93d6f7610c2400b0f789eaa6f9813e271 # v3
         with:
           path: |
             "~/.dashboard"
