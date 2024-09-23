@@ -1,8 +1,12 @@
-import parquetjs from '@dsnp/parquetjs';
 import fs from 'fs';
 import os from 'os';
 import path, { resolve } from 'path';
 import * as https from 'node:https';
+import { Config, Result } from '../index';
+import { CustomOctokit } from '../lib/octokit';
+import { queryRepoNames } from './fetcher_utils';
+
+import { Database } from 'duckdb-async';
 
 interface CondaRecord {
     time: string,
@@ -32,24 +36,32 @@ async function downloadParquetFile(url: string, outputPath: string) {
     });
 }
 
-export const getCondaData = async (brainglobePackages: string[]) => {
+export const addCondaData = async (result: Result, octokit: CustomOctokit, config: Config, startYear: number=2018) => {
+    const repos = await queryRepoNames(octokit, config);
     const baseDir = path.join(os.homedir(), '.dashboard');
-    const legacyPackages = JSON.parse(fs.readFileSync(path.resolve('../brainglobe_legacy.json'), 'utf-8'));
+    const legacyPackages = JSON.parse(fs.readFileSync(path.resolve('brainglobe_legacy.json'), 'utf-8'));
     const legacyPackagesMap = new Map<string, string>(Object.entries(legacyPackages));
 
-    console.log(legacyPackagesMap.get('bg-space'));
+    const brainglobePackages = repos.map((repo) => {return repo.name });
+    brainglobePackages.push(...legacyPackagesMap.keys());
+
     if (!fs.existsSync(baseDir)) {
         fs.mkdirSync(baseDir);
     }
 
-    const extractedRows: CondaRecord[] = [];
-    for (let i = 2019; i <= 2024; i++) {
+    const currYear = new Date().getFullYear();
+    let lastMonth = 1;
+
+    for (let i = startYear; i <= currYear; i++) {
         for (let j = 1; j <= 12; j++) {
             const fileName = path.join(baseDir, `${i}-${String(j).padStart(2, '0')}.parquet`);
 
             if (!fs.existsSync(fileName)) {
                 const url = `https://anaconda-package-data.s3.amazonaws.com/conda/monthly/${i}/${i}-${String(j).padStart(2, '0')}.parquet`;
 
+                // Check if the URL for the given month exists (status code 2xx)
+                // The updates can take some time to be available, so there's
+                // no easy way to know which month to stop at.
                 const checkURLReq = await new Promise((resolve, reject) => {
                     fetch(url, {
                         method: "HEAD"
@@ -60,48 +72,47 @@ export const getCondaData = async (brainglobePackages: string[]) => {
                     })
                 })
 
+                // If the URL does not exist, assume that there are no more
+                // files to download and break the loop
                 if (!checkURLReq) {
+                    lastMonth = j - 1;
                     break;
                 } else {
                     await downloadParquetFile(url, fileName);
                 }
             }
-
-            let reader = await parquetjs.ParquetReader.openFile(fileName);
-            let cursor = reader.getCursor();
-
-            let record = null;
-            while (record = await cursor.next() as CondaRecord) {
-                if (brainglobePackages.includes(record.pkg_name)) {
-                    extractedRows.push(record);
-                }
-            }
-
-            await reader.close();
         }
     }
 
-    const packageDownloads = new Map<string, bigint>();
-    extractedRows.forEach((record) => {
-        if (packageDownloads.has(record.pkg_name)) {
-            packageDownloads.set(record.pkg_name, packageDownloads.get(record.pkg_name)! + record.counts);
-        } else {
-            packageDownloads.set(record.pkg_name, record.counts);
+    const db = await Database.create( `:memory:` );
+    const formattedString = brainglobePackages.map((pkg) => `'${pkg}'`).join(',');
+
+    const totalDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/*.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
+    const lastMonthDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/${currYear}-${String(lastMonth).padStart(2, '0')}.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
+
+    totalDownloads.forEach((row) => {
+        if (legacyPackagesMap.has(row.pkg_name)) {
+            row.pkg_name = legacyPackagesMap.get(row.pkg_name);
         }
-    });
+
+        if ( !result.repositories[row.pkg_name].condaTotalDownloads ) {
+            result.repositories[row.pkg_name].condaTotalDownloads = row.total;
+        } else {
+            result.repositories[row.pkg_name].condaTotalDownloads += row.total;
+        }
+    })
+
+    lastMonthDownloads.forEach((row) => {
+        if (legacyPackagesMap.has(row.pkg_name)) {
+            row.pkg_name = legacyPackagesMap.get(row.pkg_name);
+        }
+
+        if (!result.repositories[row.pkg_name].condaMonthlyDownloads) {
+            result.repositories[row.pkg_name].condaMonthlyDownloads = row.total;
+        } else {
+            result.repositories[row.pkg_name].condaMonthlyDownloads += row.total;
+        }
+    })
+
+    return result;
 };
-
-const brainglobe_packages = [
-    "brainreg",
-    "brainreg-napari",
-    "brainreg-segment",
-    "cellfinder-core",
-    "cellfinder-napari",
-    "brainglobe-space",
-    "brainglobe-utils",
-    "brainglobe-atlasapi",
-    "brainglobe-napari-io",
-    "brainglobe-segmentation",
-]
-
-getCondaData(brainglobe_packages)
