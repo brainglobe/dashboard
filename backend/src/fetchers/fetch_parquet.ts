@@ -39,11 +39,20 @@ async function downloadParquetFile(url: string, outputPath: string) {
 export const addCondaData = async (result: Result, octokit: CustomOctokit, config: Config, startYear: number=2018) => {
     const repos = await queryRepoNames(octokit, config);
     const baseDir = path.join(os.homedir(), '.dashboard');
-    const legacyPackages = JSON.parse(fs.readFileSync(path.resolve('brainglobe_legacy.json'), 'utf-8'));
-    const legacyPackagesMap = new Map<string, string>(Object.entries(legacyPackages));
 
-    const brainglobePackages = repos.map((repo) => {return repo.name });
-    brainglobePackages.push(...legacyPackagesMap.keys());
+    const packages = repos.map((repo) => {return repo.name });
+
+    const legacyPackagesMap = new Map<string, string>();
+    if (config.organization === 'brainglobe') {
+        const legacyPackages = JSON.parse(fs.readFileSync(path.resolve('brainglobe_legacy.json'), 'utf-8'));
+        Object.entries(legacyPackages).forEach(([key, value]) => {
+            if (typeof value === 'string') {
+                legacyPackagesMap.set(key, value);
+            }
+        })
+
+        packages.push(...legacyPackagesMap.keys());
+    }
 
     if (!fs.existsSync(baseDir)) {
         fs.mkdirSync(baseDir);
@@ -85,7 +94,7 @@ export const addCondaData = async (result: Result, octokit: CustomOctokit, confi
     }
 
     const db = await Database.create( `:memory:` );
-    const formattedString = brainglobePackages.map((pkg) => `'${pkg}'`).join(',');
+    const formattedString = packages.map((pkg) => `'${pkg}'`).join(',');
 
     const totalDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/*.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
     const lastMonthDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/${currYear}-${String(lastMonth).padStart(2, '0')}.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
