@@ -1,22 +1,12 @@
 import fs from 'fs';
 import os from 'os';
-import path, { resolve } from 'path';
+import path from 'path';
 import * as https from 'node:https';
 import { Config, Result } from '../index';
 import { CustomOctokit } from '../lib/octokit';
 import { queryRepoNames } from './fetcher_utils';
 
 import { Database } from 'duckdb-async';
-
-interface CondaRecord {
-    time: string,
-    data_source: string,
-    pkg_name: string,
-    pkg_version: string,
-    pkg_platform: string,
-    pkg_python: string,
-    counts: bigint,
-}
 
 async function downloadParquetFile(url: string, outputPath: string) {
     return new Promise((resolve, reject) => {
