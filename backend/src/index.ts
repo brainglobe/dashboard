@@ -88,6 +88,23 @@ if (!envOrganizationName && !configOrganizationName) {
   );
 }
 
+const config: Config = {
+  includeForks: false,
+  includeArchived: false,
+  ...yamlConfig,
+  // You can override the organization in an env variable ORGANIZATION_NAME
+  organization:
+    (envOrganizationName && envOrganizationName?.length !== 0
+      ? envOrganizationName
+      : configOrganizationName) ?? '',
+  // Default since date is 365 days ago (1 year)
+  since: yamlConfig.since
+    ? new Date(yamlConfig.since).toISOString()
+    : new Date(Date.now() - 365 * (24 * 60 * 60 * 1000)).toISOString(),
+};
+
+console.log(`📋  Configuration: \n${JSON.stringify(config, null, 2)}`);
+
 const pipeline =
   (octokit: CustomOctokit, config: Config) =>
     async (...fetchers: Fetcher[]) => {

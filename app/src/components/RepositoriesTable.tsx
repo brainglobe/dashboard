@@ -489,8 +489,6 @@ const generateCSV = (data: RepositoryResult[]): Blob => {
   return new Blob([output], { type: 'text/csv' });
 };
 
-
-
 const RepositoriesTable = ({ orgName }: RepositoryTableProps) => {
   const dataFileName = `data_${orgName}.json`;
   // eslint-disable-next-line import/no-dynamic-require
