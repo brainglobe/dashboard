@@ -26,6 +26,8 @@ export interface RepositoryResult {
   weeklyDownloadCount: number;
   dailyDownloadCount: number;
   contributorsCount: number;
+  condaTotalDownloads: number;
+  condaMonthlyDownloads: number;
 
   // Flags
   discussionsEnabled: boolean;
