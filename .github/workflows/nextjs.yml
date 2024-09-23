@@ -85,7 +85,7 @@ jobs:
         uses: actions/cache@734d9cb93d6f7610c2400b0f789eaa6f9813e271 # v3
         with:
           path: |
-            "~/.dashboard"
+            ~/.dashboard
           key: conda-download-cache-${{ env.DATE }}
       - name: Install dependencies
         run: cd "${{ github.workspace }}/app" && ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
