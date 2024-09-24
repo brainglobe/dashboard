@@ -49,7 +49,7 @@ export const addCondaData = async (result: Result, octokit: CustomOctokit, confi
     }
 
     const currYear = new Date().getFullYear();
-    let lastMonth = 1;
+    let lastFileName = "";
 
     for (let i = startYear; i <= currYear; i++) {
         for (let j = 1; j <= 12; j++) {
@@ -74,12 +74,13 @@ export const addCondaData = async (result: Result, octokit: CustomOctokit, confi
                 // If the URL does not exist, assume that there are no more
                 // files to download and break the loop
                 if (!checkURLReq) {
-                    lastMonth = j - 1;
                     break;
                 } else {
                     await downloadParquetFile(url, fileName);
                 }
             }
+            // Save the last valid file name to use for monthly stats
+            lastFileName = fileName;
         }
     }
 
@@ -87,7 +88,7 @@ export const addCondaData = async (result: Result, octokit: CustomOctokit, confi
     const formattedString = packages.map((pkg) => `'${pkg}'`).join(',');
 
     const totalDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/*.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
-    const lastMonthDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${baseDir}/${currYear}-${String(lastMonth).padStart(2, '0')}.parquet' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
+    const lastMonthDownloads = await db.all(`SELECT pkg_name, SUM(counts)::INTEGER AS total FROM '${lastFileName}' WHERE pkg_name IN (${formattedString}) GROUP BY pkg_name`);
 
     totalDownloads.forEach((row) => {
         if (legacyPackagesMap.has(row.pkg_name)) {
