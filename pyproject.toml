@@ -17,7 +17,7 @@ dependencies = [
     "itables",
     "boto3",
     "pyarrow",
-    "matplotlib"
+    "bokeh"
 ]
 
 license = {text = "BSD-3-Clause"}
@@ -74,6 +74,8 @@ filterwarnings = [
 # rather than pulling in stub packages.
 [[tool.mypy.overrides]]
 module = [
+    "bokeh",
+    "bokeh.*",
     "boto3",
     "boto3.*",
     "botocore.*",
@@ -83,8 +85,6 @@ module = [
     "duckdb.*",
     "github",
     "github.*",
-    "matplotlib",
-    "matplotlib.*",
     "pandas",
     "pandas.*",
     "pyarrow",

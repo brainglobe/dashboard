@@ -35,12 +35,14 @@ The **client tool** is inferred from each request's `Referer` and
 ```{python}
 # | label: load
 from datetime import datetime
-from pathlib import Path
 import json
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import pandas as pd
+from bokeh.io import output_notebook, show
+from bokeh.layouts import column, gridplot, row
+from bokeh.models import ColumnDataSource, CustomJS, Div
+from bokeh.plotting import figure
+from bokeh.resources import INLINE
 
 from oss_dashboard.atlas_logs.atlas_names import display_name
 from oss_dashboard.atlas_logs.constants import (
@@ -50,27 +52,108 @@ from oss_dashboard.atlas_logs.constants import (
     TOOL_PARQUET_PATH,
 )
 
+# Embeds BokehJS directly into the page rather than pointing at a CDN, so
+# the charts also work fully offline.
+output_notebook(resources=INLINE, hide_banner=True)
+
 GREEN = "#03A062"
 BLUE = "#4178f3"
 ORANGE = "#EE9040"
+PURPLE = "#7B61FF"
+PINK = "#E0529C"
+BROWN = "#B4622A"
 # A mid grey that stays legible on both the light and dark site themes.
 INK = "#888888"
+GRID = "#88888840"
 
-mpl.rcParams.update({
-    "figure.facecolor": "none",
-    "axes.facecolor": "none",
-    "savefig.facecolor": "none",
-    "savefig.transparent": True,
-    "text.color": INK,
-    "axes.labelcolor": INK,
-    "axes.edgecolor": INK,
-    "xtick.color": INK,
-    "ytick.color": INK,
-    "axes.titlecolor": INK,
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-    "font.size": 11,
-})
+
+def _style(fig):
+    """Transparent, theme-agnostic styling matching the site's light/dark toggle."""
+    fig.background_fill_color = None
+    fig.border_fill_color = None
+    fig.outline_line_color = None
+    fig.xgrid.grid_line_color = GRID
+    fig.ygrid.grid_line_color = GRID
+    fig.axis.axis_line_color = GRID
+    fig.axis.major_tick_line_color = GRID
+    fig.axis.minor_tick_line_color = None
+    fig.axis.axis_label_text_color = INK
+    fig.axis.major_label_text_color = INK
+    if fig.title is not None:
+        fig.title.text_color = INK
+        fig.title.text_font_size = "13px"
+    fig.toolbar.logo = None
+    return fig
+
+
+def _bar_figure(labels, values, *, title, color, x_label, keys=None):
+    """A horizontal bar chart, largest value at top, with hover tooltips.
+
+    ``keys`` (defaulting to ``labels``) are the lookup keys used by
+    ``_wire_drilldown`` - only the atlas chart needs a raw key that differs
+    from its human-readable label.
+    """
+    keys = list(keys) if keys is not None else list(labels)
+    source = ColumnDataSource(data=dict(label=list(labels), key=keys, value=list(values)))
+    fig = figure(
+        y_range=list(labels),
+        height=max(170, 26 * len(labels)),
+        sizing_mode="stretch_width",
+        tools="tap,hover,reset",
+        toolbar_location=None,
+        title=title,
+    )
+    fig.hbar(
+        y="label",
+        right="value",
+        height=0.7,
+        source=source,
+        fill_color=color,
+        line_color=None,
+        selection_fill_color=color,
+        nonselection_fill_alpha=0.35,
+    )
+    fig.hover.tooltips = [("", "@label"), (x_label, "@value{0,0}")]
+    fig.xaxis.axis_label = x_label
+    fig.x_range.start = 0
+    _style(fig)
+    return fig, source
+
+
+def _wire_drilldown(source, lookup, prefix, *, ts_source, caption, total_y, base_caption):
+    """Clicking a bar swaps the shared time-series line to that entity's
+    own daily trend; clicking the same (selected) bar again resets it."""
+    callback = CustomJS(
+        args=dict(
+            bar_source=source,
+            ts=ts_source,
+            caption=caption,
+            lookup=lookup,
+            total_y=total_y,
+            base_caption=base_caption,
+            prefix=prefix,
+        ),
+        code="""
+        const idx = cb_obj.indices;
+        if (idx.length === 0) {
+            ts.data['y'] = total_y;
+            caption.text = base_caption;
+        } else {
+            const i = idx[idx.length - 1];
+            const key = bar_source.data['key'][i];
+            const series = lookup[key];
+            if (series !== undefined) {
+                const label = bar_source.data['label'][i];
+                ts.data['y'] = series;
+                caption.text = 'Showing <b>' + prefix + ':</b> ' + label +
+                    ' &mdash; click the bar again to reset';
+            }
+        }
+        ts.change.emit();
+        """,
+    )
+    source.selected.js_on_change("indices", callback)
+
 
 GB = 1e9
 TB = 1e12
@@ -113,6 +196,7 @@ if not has_data:
 # | label: derived
 if has_data:
     usage["date"] = pd.to_datetime(usage["date"])
+    countries["date"] = pd.to_datetime(countries["date"])
 
     # The per-atlas views use annotation-set requests only (see intro).
     annotations = usage[usage["resource"] == "annotation"]
@@ -156,11 +240,13 @@ if has_data:
                 aggfunc="sum",
                 fill_value=0,
             )
-            .asfreq("D", fill_value=0)
+            # Reindexed onto the same daily index as every other breakdown
+            # below, so all the drilldown series line up on one shared axis.
+            .reindex(by_day.index, fill_value=0)
             .reindex(columns=by_tool.index)
         )
     else:
-        tool_daily = pd.DataFrame()
+        tool_daily = pd.DataFrame(index=by_day.index)
 
     total_requests = int(usage["requests"].sum())
     total_bytes = int(usage["bytes_sent"].sum())
@@ -169,6 +255,31 @@ if has_data:
     n_countries = int((by_country.index != "??").sum())
     span = f"{by_day.index.min():%d %b %Y} – {by_day.index.max():%d %b %Y}"
     n_days = by_day.shape[0]
+    country_total = int(by_country.sum())
+    unresolved_countries = int(by_country.get("??", 0))
+
+    # {group value -> [requests per day]}, aligned to by_day.index, used to
+    # drive the click-to-drilldown time series below - all computed once
+    # here so the interactive charts are pure client-side JS afterwards.
+    def _daily_lookup(df, group_col):
+        if df.empty:
+            return {}
+        pivot = (
+            df.groupby(["date", group_col])["requests"]
+            .sum()
+            .unstack(fill_value=0)
+            .reindex(by_day.index, fill_value=0)
+        )
+        return {str(col): pivot[col].astype(int).tolist() for col in pivot.columns}
+
+    atlas_daily = _daily_lookup(annotations, "atlas")
+    resource_daily = _daily_lookup(usage, "resource")
+    country_daily = _daily_lookup(countries, "country")
+    tool_daily_lookup = {
+        str(col): tool_daily[col].fillna(0).astype(int).tolist()
+        for col in tool_daily.columns
+    }
+    total_daily = by_day["requests"].astype(int).tolist()
 ```
 
 ```{python}
@@ -230,139 +341,191 @@ if has_data:
     )
 ```
 
-```{python}
-# | label: atlas-bars
-# | fig-width: 9
-# | fig-height: 7
-if has_data:
-    top = (
-        by_atlas[by_atlas.index != "unclassified"]
-        .head(15)
-        .set_index("name")
-    )
-    fig, axes = plt.subplots(1, 2, figsize=(11, 6))
+## Explore requests interactively
 
-    top["requests"].sort_values().plot.barh(ax=axes[0], color=GREEN)
-    axes[0].set_title("Requests by atlas (top 15)")
-    axes[0].set_xlabel("object requests")
-    axes[0].set_ylabel("")
-
-    top["gb"].sort_values().plot.barh(ax=axes[1], color=BLUE)
-    axes[1].set_title("Data served by atlas (top 15)")
-    axes[1].set_xlabel("GB")
-    axes[1].set_ylabel("")
-
-    fig.tight_layout()
-    plt.show()
-```
-
-## Over time
+Click a bar in any of the four charts below to see *that slice's own* daily
+trend in the time series above them; click the same bar again to reset it
+back to the overall total.
 
 ```{python}
-# | label: timeseries
-# | fig-width: 9
-# | fig-height: 6
+# | label: explorer
 if has_data:
-    fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    BASE_CAPTION = "Showing <b>all requests</b> &mdash; click a bar below to drill in"
+    caption = Div(text=BASE_CAPTION, styles={"color": INK, "font-size": "0.85rem"})
 
-    axes[0].plot(
-        by_day.index, by_day["requests"], color=GREEN, alpha=0.35, lw=1
+    ts_source = ColumnDataSource(data=dict(x=list(by_day.index), y=total_daily))
+    ts_fig = figure(
+        x_axis_type="datetime",
+        height=260,
+        sizing_mode="stretch_width",
+        tools="hover,reset,xpan,xwheel_zoom",
+        toolbar_location="above",
+        title="Requests over time",
     )
-    axes[0].plot(
-        by_day.index,
-        by_day["requests"].rolling(7, min_periods=1).mean(),
+    ts_fig.line("x", "y", source=ts_source, color=GREEN, line_width=2)
+    ts_fig.hover.tooltips = [("date", "@x{%F}"), ("requests", "@y{0,0}")]
+    ts_fig.hover.formatters = {"@x": "datetime"}
+    ts_fig.hover.mode = "vline"
+    ts_fig.y_range.start = 0
+    _style(ts_fig)
+
+    top_atlas = (
+        by_atlas[by_atlas.index != "unclassified"].head(15).sort_values("requests")
+    )
+    atlas_fig, atlas_source = _bar_figure(
+        [display_name(k) for k in top_atlas.index],
+        top_atlas["requests"].tolist(),
+        keys=list(top_atlas.index),
+        title="By atlas (top 15)",
         color=GREEN,
-        lw=2,
-        label="7-day mean",
+        x_label="requests",
     )
-    axes[0].set_ylabel("requests / day")
-    axes[0].legend(frameon=False)
-
-    axes[1].fill_between(
-        by_day.index, by_day["bytes_sent"] / GB, color=BLUE, alpha=0.5
+    _wire_drilldown(
+        atlas_source, atlas_daily, "atlas",
+        ts_source=ts_source, caption=caption,
+        total_y=total_daily, base_caption=BASE_CAPTION,
     )
-    axes[1].set_ylabel("GB served / day")
 
-    fig.tight_layout()
-    plt.show()
+    top_country = by_country[by_country.index != "??"].head(15).sort_values()
+    country_fig, country_source = _bar_figure(
+        list(top_country.index),
+        top_country.tolist(),
+        title="By country (top 15)",
+        color=ORANGE,
+        x_label="requests",
+    )
+    _wire_drilldown(
+        country_source, country_daily, "country",
+        ts_source=ts_source, caption=caption,
+        total_y=total_daily, base_caption=BASE_CAPTION,
+    )
+
+    resource_sorted = by_resource.sort_values()
+    resource_fig, resource_source = _bar_figure(
+        list(resource_sorted.index),
+        resource_sorted.tolist(),
+        title="By resource type",
+        color=PURPLE,
+        x_label="requests",
+    )
+    _wire_drilldown(
+        resource_source, resource_daily, "resource type",
+        ts_source=ts_source, caption=caption,
+        total_y=total_daily, base_caption=BASE_CAPTION,
+    )
+
+    tool_sorted = by_tool.sort_values()
+    tool_fig, tool_source = _bar_figure(
+        list(tool_sorted.index),
+        tool_sorted.tolist(),
+        title="By client tool",
+        color=BLUE,
+        x_label="requests",
+    )
+    _wire_drilldown(
+        tool_source, tool_daily_lookup, "client tool",
+        ts_source=ts_source, caption=caption,
+        total_y=total_daily, base_caption=BASE_CAPTION,
+    )
+
+    grid = gridplot(
+        [[atlas_fig, country_fig], [resource_fig, tool_fig]],
+        sizing_mode="stretch_width",
+        toolbar_location=None,
+    )
+    show(column(caption, ts_fig, grid, sizing_mode="stretch_width"))
 ```
-
-## By country and resource
 
 ```{python}
-# | label: country-resource
-# | fig-width: 9
-# | fig-height: 6
-if has_data:
-    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
-
-    named = by_country[by_country.index != "??"].head(15)
-    if not named.empty:
-        named.sort_values().plot.barh(ax=axes[0], color=ORANGE)
-    axes[0].set_title("Requests by country (top 15)")
-    axes[0].set_xlabel("object requests")
-    axes[0].set_ylabel("")
-
-    by_resource.sort_values().plot.barh(ax=axes[1], color=GREEN)
-    axes[1].set_title("Requests by resource type")
-    axes[1].set_xlabel("object requests")
-    axes[1].set_ylabel("")
-
-    fig.tight_layout()
-    plt.show()
-
-    country_total = int(by_country.sum())
-    unresolved = int(by_country.get("??", 0))
-    if unresolved and country_total:
-        pct = unresolved / country_total * 100
-        print(
-            f"\n*{unresolved:,} requests ({pct:.1f}%) came from IPs that "
-            f"could not be resolved to a country.*"
-        )
-```
-
-## By client tool
-
-```{python}
-# | label: tool-bars
-# | fig-width: 9
-# | fig-height: 4
-if has_data and not by_tool.empty:
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
-
-    by_tool.sort_values().plot.barh(ax=axes[0], color=GREEN)
-    axes[0].set_title("Requests by client tool")
-    axes[0].set_xlabel("object requests")
-    axes[0].set_ylabel("")
-
-    tool_gb.reindex(by_tool.index).sort_values().plot.barh(
-        ax=axes[1], color=BLUE
+# | label: unresolved-note
+# | output: asis
+if has_data and unresolved_countries and country_total:
+    pct = unresolved_countries / country_total * 100
+    print(
+        f"*{unresolved_countries:,} requests ({pct:.1f}%) came from IPs "
+        f"that could not be resolved to a country.*"
     )
-    axes[1].set_title("Data served by client tool")
-    axes[1].set_xlabel("GB")
-    axes[1].set_ylabel("")
-
-    fig.tight_layout()
-    plt.show()
 ```
+
+## Requests per day by client tool
 
 ```{python}
 # | label: tool-over-time
-# | fig-width: 9
-# | fig-height: 4
 if has_data and not tool_daily.empty and tool_daily.shape[0] > 1:
-    top = tool_daily[tool_daily.sum().sort_values(ascending=False).index[:6]]
-    palette = [GREEN, BLUE, ORANGE, "#7B61FF", "#E0529C", INK]
-    ax = top.plot.area(
-        figsize=(10, 4), color=palette[: top.shape[1]], alpha=0.85, lw=0
+    top_cols = tool_daily.sum().sort_values(ascending=False).index[:6]
+    # Fixed hue order, checked with the design system's CVD-separation
+    # validator (adjacent pairs pass in this order); a plain grey read as
+    # colourless and failed, hence BROWN as the 6th hue instead of INK.
+    palette = [GREEN, BLUE, ORANGE, PURPLE, PINK, BROWN]
+
+    fig = figure(
+        x_axis_type="datetime",
+        height=380,
+        sizing_mode="stretch_width",
+        tools="hover,reset,xpan,xwheel_zoom",
+        toolbar_location="above",
+        title="Requests per day by client tool (top 6) — click a legend entry to isolate it",
     )
-    ax.set_title("Requests per day by client tool (top 6)")
-    ax.set_xlabel("")
-    ax.set_ylabel("requests / day")
-    ax.legend(frameon=False, fontsize=9, loc="upper left")
-    plt.tight_layout()
-    plt.show()
+    dates = list(tool_daily.index)
+    for name, color in zip(top_cols, palette):
+        fig.line(
+            dates,
+            tool_daily[name].tolist(),
+            color=color,
+            line_width=2,
+            legend_label=str(name),
+            name=str(name),
+        )
+    fig.legend.click_policy = "hide"
+    fig.legend.location = "top_left"
+    fig.legend.background_fill_alpha = 0
+    fig.legend.border_line_alpha = 0
+    fig.legend.label_text_color = INK
+    fig.y_range.start = 0
+    fig.hover.tooltips = [("tool", "$name"), ("date", "@x{%F}"), ("requests", "@y{0,0}")]
+    fig.hover.formatters = {"@x": "datetime"}
+    fig.hover.mode = "vline"
+    _style(fig)
+    show(fig)
 ```
+
+## Data served
+
+The charts above all count *requests*, not bytes - a resource fetched a
+thousand times counts a thousand times over even if it is tiny, and a huge
+file counts once even if it dwarfs everything else in size. These two show
+the same "by atlas" / "by client tool" breakdowns weighted by GB served
+instead.
+
+```{python}
+# | label: data-served
+if has_data:
+    top_gb = (
+        by_atlas[by_atlas.index != "unclassified"]
+        .head(15)
+        .sort_values("gb")
+    )
+    atlas_gb_fig, _ = _bar_figure(
+        [display_name(k) for k in top_gb.index],
+        top_gb["gb"].tolist(),
+        title="Data served by atlas (top 15)",
+        color=BLUE,
+        x_label="GB",
+    )
+
+    tool_gb_sorted = tool_gb.reindex(by_tool.index).dropna().sort_values()
+    tool_gb_fig, _ = _bar_figure(
+        list(tool_gb_sorted.index),
+        tool_gb_sorted.round(1).tolist(),
+        title="Data served by client tool",
+        color=BROWN,
+        x_label="GB",
+    )
+
+    show(row(atlas_gb_fig, tool_gb_fig, sizing_mode="stretch_width"))
+```
+
+## Client tool breakdown
 
 ```{python}
 # | label: tool-table
